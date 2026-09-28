@@ -10,6 +10,12 @@ final class UsageViewModel: ObservableObject {
     @Published var lastUpdated: Date?
     @Published var errorMessage: String?
     @Published var isRefreshing = false
+    @Published var launchAtLogin: Bool = LaunchAtLoginManager.isEnabled {
+        didSet {
+            guard launchAtLogin != oldValue else { return }
+            LaunchAtLoginManager.setEnabled(launchAtLogin)
+        }
+    }
 
     private var timer: Timer?
 
@@ -26,6 +32,7 @@ final class UsageViewModel: ObservableObject {
     }()
 
     init() {
+        NotificationManager.shared.requestAuthorizationIfNeeded()
         Task { await refresh() }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -53,6 +60,19 @@ final class UsageViewModel: ObservableObject {
             sevenDayResetsAt = usage.sevenDay?.resetsAt.flatMap(parseDate)
             lastUpdated = Date()
             errorMessage = nil
+
+            NotificationManager.shared.evaluate(
+                windowID: "fiveHour",
+                title: "5-Hour Usage",
+                percent: fiveHourPercent,
+                resetsAt: fiveHourResetsAt
+            )
+            NotificationManager.shared.evaluate(
+                windowID: "sevenDay",
+                title: "Weekly Usage",
+                percent: sevenDayPercent,
+                resetsAt: sevenDayResetsAt
+            )
         } catch {
             errorMessage = error.localizedDescription
         }

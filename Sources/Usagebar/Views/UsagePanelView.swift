@@ -154,6 +154,13 @@ struct UsagePanelView: View {
 
             Divider()
 
+            Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.system(size: 12))
+
+            Divider()
+
             Button("Quit Usagebar") {
                 NSApplication.shared.terminate(nil)
             }
