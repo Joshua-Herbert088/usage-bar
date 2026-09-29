@@ -62,6 +62,10 @@ The first launch will trigger a standard macOS Keychain access prompt
 - Tiered notifications at 50/75/90% usage for each window, once per tier
   per reset cycle
 - Launch at Login toggle (backed by `SMAppService`)
+- Settings window (Launch at Login, a Usage Notifications toggle that
+  actually gates alerts, app version) — opened via the dropdown's
+  "Settings" button, since an LSUIElement app has no app menu
+- Original app icon (`scripts/generate_icon.swift` → `.icns`)
 - Guards against duplicate running instances doubling the poll rate
 - Graceful error state if Claude Code isn't installed/logged in, or the
   login has expired
@@ -70,4 +74,3 @@ The first launch will trigger a standard macOS Keychain access prompt
 
 - Context-window tracking
 - Today's message/token stats
-- Settings UI, app icon
