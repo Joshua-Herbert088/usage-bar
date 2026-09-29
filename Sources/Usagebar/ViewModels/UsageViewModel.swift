@@ -18,6 +18,7 @@ final class UsageViewModel: ObservableObject {
     }
 
     private var timer: Timer?
+    private var cooldownUntil: Date?
 
     private let fractionalFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -34,7 +35,7 @@ final class UsageViewModel: ObservableObject {
     init() {
         NotificationManager.shared.requestAuthorizationIfNeeded()
         Task { await refresh() }
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 90, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { await self.refresh() }
         }
@@ -45,6 +46,12 @@ final class UsageViewModel: ObservableObject {
     }
 
     func refresh() async {
+        if let cooldownUntil, cooldownUntil > Date() {
+            // Still backing off from a recent 429 — skip this poll rather
+            // than making the rate limit worse.
+            return
+        }
+
         isRefreshing = true
         defer { isRefreshing = false }
 
@@ -60,6 +67,7 @@ final class UsageViewModel: ObservableObject {
             sevenDayResetsAt = usage.sevenDay?.resetsAt.flatMap(parseDate)
             lastUpdated = Date()
             errorMessage = nil
+            cooldownUntil = nil
 
             NotificationManager.shared.evaluate(
                 windowID: "fiveHour",
@@ -75,6 +83,9 @@ final class UsageViewModel: ObservableObject {
             )
         } catch {
             errorMessage = error.localizedDescription
+            if case UsageAPIError.httpError(429, let retryAfter) = error {
+                cooldownUntil = Date().addingTimeInterval(retryAfter ?? 120)
+            }
         }
     }
 

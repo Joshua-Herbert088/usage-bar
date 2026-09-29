@@ -2,20 +2,34 @@ import Foundation
 
 enum UsageAPIError: LocalizedError {
     case invalidResponse
-    case httpError(Int)
+    case httpError(Int, retryAfter: TimeInterval?)
     case decodingFailed(Error)
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "Unexpected response from Anthropic's usage API."
-        case .httpError(let code):
-            return code == 401
-                ? "Login expired. Run `claude` in your terminal to log in again."
-                : "Usage API returned HTTP \(code)."
+        case .httpError(let code, let retryAfter):
+            switch code {
+            case 401:
+                return "Login expired. Run `claude` in your terminal to log in again."
+            case 429:
+                if let retryAfter, retryAfter >= 1 {
+                    return "Rate limited by Anthropic's usage API — retrying in \(Int(retryAfter))s."
+                }
+                return "Rate limited by Anthropic's usage API — backing off."
+            default:
+                return "Usage API returned HTTP \(code)."
+            }
         case .decodingFailed(let error):
             return "Failed to parse usage response: \(error.localizedDescription)"
         }
+    }
+
+    /// How long the caller should wait before retrying, when known.
+    var retryAfter: TimeInterval? {
+        if case .httpError(_, let retryAfter) = self { return retryAfter }
+        return nil
     }
 }
 
@@ -41,7 +55,8 @@ enum UsageAPIClient {
             throw UsageAPIError.invalidResponse
         }
         guard http.statusCode == 200 else {
-            throw UsageAPIError.httpError(http.statusCode)
+            let retryAfter = (http.value(forHTTPHeaderField: "Retry-After")).flatMap(TimeInterval.init)
+            throw UsageAPIError.httpError(http.statusCode, retryAfter: retryAfter)
         }
 
         do {
