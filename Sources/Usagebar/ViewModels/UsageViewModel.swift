@@ -16,6 +16,11 @@ final class UsageViewModel: ObservableObject {
             LaunchAtLoginManager.setEnabled(launchAtLogin)
         }
     }
+    @Published var notificationsEnabled: Bool = (UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true) {
+        didSet {
+            UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+        }
+    }
 
     private var timer: Timer?
     private var cooldownUntil: Date?
@@ -69,18 +74,20 @@ final class UsageViewModel: ObservableObject {
             errorMessage = nil
             cooldownUntil = nil
 
-            NotificationManager.shared.evaluate(
-                windowID: "fiveHour",
-                title: "5-Hour Usage",
-                percent: fiveHourPercent,
-                resetsAt: fiveHourResetsAt
-            )
-            NotificationManager.shared.evaluate(
-                windowID: "sevenDay",
-                title: "Weekly Usage",
-                percent: sevenDayPercent,
-                resetsAt: sevenDayResetsAt
-            )
+            if notificationsEnabled {
+                NotificationManager.shared.evaluate(
+                    windowID: "fiveHour",
+                    title: "5-Hour Usage",
+                    percent: fiveHourPercent,
+                    resetsAt: fiveHourResetsAt
+                )
+                NotificationManager.shared.evaluate(
+                    windowID: "sevenDay",
+                    title: "Weekly Usage",
+                    percent: sevenDayPercent,
+                    resetsAt: sevenDayResetsAt
+                )
+            }
         } catch {
             errorMessage = error.localizedDescription
             if case UsageAPIError.httpError(429, let retryAfter) = error {

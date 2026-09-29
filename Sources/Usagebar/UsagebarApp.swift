@@ -33,5 +33,9 @@ struct UsagebarApp: App {
             MenuBarLabelView(viewModel: viewModel)
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView(viewModel: viewModel)
+        }
     }
 }
