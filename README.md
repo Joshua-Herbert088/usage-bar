@@ -13,7 +13,7 @@ weekly usage limits at a glance — a from-scratch recreation of
    `GET https://api.anthropic.com/api/oauth/usage`
    (headers: `Authorization: Bearer <token>`, `anthropic-version: 2023-06-01`).
 3. Shows the `five_hour` and `seven_day` utilization percentages and reset
-   timers in a menu bar dropdown, polling every 60 seconds.
+   timers in a menu bar dropdown, polling every 90 seconds.
 
 Credentials never leave your machine except to call Anthropic's API
 directly — nothing is synced or stored elsewhere.
@@ -52,18 +52,22 @@ The first launch will trigger a standard macOS Keychain access prompt
 ("Usagebar wants to use your confidential information stored in
 'Claude Code-credentials'..."). Choose **Always Allow**.
 
-## What's implemented (core loop)
+## What's implemented
 
 - Menu bar badge showing live 5-hour usage %
 - Dropdown panel with 5-hour and weekly progress bars + reset countdowns
 - Plan badge (Pro/Max, from your Claude Code login)
-- Manual refresh + 60s auto-refresh
+- Manual refresh + 90s auto-refresh, with backoff (respecting `Retry-After`)
+  if the usage API responds 429
+- Tiered notifications at 50/75/90% usage for each window, once per tier
+  per reset cycle
+- Launch at Login toggle (backed by `SMAppService`)
+- Guards against duplicate running instances doubling the poll rate
 - Graceful error state if Claude Code isn't installed/logged in, or the
   login has expired
 
 ## Not implemented yet
 
-- Tiered notifications (50/75/90%)
 - Context-window tracking
 - Today's message/token stats
-- Launch-at-login, settings UI, app icon
+- Settings UI, app icon
