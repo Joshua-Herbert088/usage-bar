@@ -46,11 +46,12 @@ struct UsageRow: View {
             ProgressBar(percent: percent ?? 0, color: barColor)
                 .frame(height: 6)
 
-            if let resetText {
-                Text(resetText)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
+            // Always reserve the reset line so the row's height doesn't
+            // depend on whether a reset time is known (see UsagePanelView).
+            Text(resetText ?? " ")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .opacity(resetText == nil ? 0 : 1)
         }
     }
 
@@ -107,27 +108,37 @@ struct UsagePanelView: View {
 
             Divider()
 
-            if let error = viewModel.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                UsageRow(
-                    icon: "clock",
-                    title: "5-Hour Window",
-                    percent: viewModel.fiveHourPercent,
-                    resetsAt: viewModel.fiveHourResetsAt,
-                    resetsStyle: .relative
-                )
+            // The MenuBarExtra window's glass background doesn't reliably
+            // follow content size changes, so keep the usage rows laid out
+            // (just invisible) while an error is shown. That way the panel
+            // is the same height in both states and the window never resizes.
+            ZStack(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 12) {
+                    UsageRow(
+                        icon: "clock",
+                        title: "5-Hour Window",
+                        percent: viewModel.fiveHourPercent,
+                        resetsAt: viewModel.fiveHourResetsAt,
+                        resetsStyle: .relative
+                    )
 
-                UsageRow(
-                    icon: "calendar",
-                    title: "Weekly",
-                    percent: viewModel.sevenDayPercent,
-                    resetsAt: viewModel.sevenDayResetsAt,
-                    resetsStyle: .absolute
-                )
+                    UsageRow(
+                        icon: "calendar",
+                        title: "Weekly",
+                        percent: viewModel.sevenDayPercent,
+                        resetsAt: viewModel.sevenDayResetsAt,
+                        resetsStyle: .absolute
+                    )
+                }
+                .opacity(viewModel.errorMessage == nil ? 1 : 0)
+                .accessibilityHidden(viewModel.errorMessage != nil)
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Divider()

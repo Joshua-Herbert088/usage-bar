@@ -24,6 +24,9 @@ final class UsageViewModel: ObservableObject {
 
     private var timer: Timer?
     private var cooldownUntil: Date?
+    /// Keychain reads are only repeated when this token expires or the API
+    /// rejects it, not on every 90s poll.
+    private var cachedCredentials: ClaudeCredentials.OAuth?
 
     private let fractionalFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -61,10 +64,22 @@ final class UsageViewModel: ObservableObject {
         defer { isRefreshing = false }
 
         do {
-            let credentials = try KeychainCredentialsStore.fetchCredentials()
+            var credentials = try await currentCredentials()
+            let usage: UsageResponse
+            do {
+                usage = try await UsageAPIClient.fetchUsage(accessToken: credentials.accessToken)
+            } catch UsageAPIError.httpError(401, _) {
+                // The CLI may have refreshed the token before our cached
+                // copy's expiry. Re-read once and retry only if it changed.
+                let stale = credentials.accessToken
+                cachedCredentials = nil
+                credentials = try await currentCredentials()
+                guard credentials.accessToken != stale else {
+                    throw UsageAPIError.httpError(401, retryAfter: nil)
+                }
+                usage = try await UsageAPIClient.fetchUsage(accessToken: credentials.accessToken)
+            }
             planLabel = (credentials.subscriptionType ?? "").capitalized
-
-            let usage = try await UsageAPIClient.fetchUsage(accessToken: credentials.accessToken)
 
             fiveHourPercent = usage.fiveHour?.utilization
             fiveHourResetsAt = usage.fiveHour?.resetsAt.flatMap(parseDate)
@@ -94,6 +109,19 @@ final class UsageViewModel: ObservableObject {
                 cooldownUntil = Date().addingTimeInterval(retryAfter ?? 120)
             }
         }
+    }
+
+    /// Returns the cached token while it's still valid; otherwise reads a
+    /// fresh one from Keychain off the main thread (it spawns `security`).
+    private func currentCredentials() async throws -> ClaudeCredentials.OAuth {
+        if let cachedCredentials, !cachedCredentials.isExpired() {
+            return cachedCredentials
+        }
+        let fresh = try await Task.detached {
+            try KeychainCredentialsStore.fetchCredentials()
+        }.value
+        cachedCredentials = fresh
+        return fresh
     }
 
     /// Anthropic returns timestamps like "2026-09-28T12:20:00.322843+00:00" —

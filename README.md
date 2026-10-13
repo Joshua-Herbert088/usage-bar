@@ -9,6 +9,10 @@ weekly usage limits at a glance — a from-scratch recreation of
 1. Reads the OAuth credentials Claude Code (the CLI) already stores in your
    macOS login Keychain, under the generic-password service
    `Claude Code-credentials` (same item `claude` creates when you log in).
+   It reads the item via `/usr/bin/security`, the same tool the CLI uses to
+   write it, so there are no Keychain password prompts — even after the CLI
+   refreshes its token. The token is cached in memory and only re-read when
+   it expires or the API rejects it.
 2. Calls Anthropic's usage endpoint directly with that token:
    `GET https://api.anthropic.com/api/oauth/usage`
    (headers: `Authorization: Bearer <token>`, `anthropic-version: 2023-06-01`).
@@ -46,11 +50,10 @@ open dist/Usagebar.app
 
 This packages a release build into `dist/Usagebar.app` with `LSUIElement`
 set, so it only lives in the menu bar (no Dock icon), and ad-hoc signs it so
-Gatekeeper and Keychain prompts behave normally.
+Gatekeeper behaves normally.
 
-The first launch will trigger a standard macOS Keychain access prompt
-("Usagebar wants to use your confidential information stored in
-'Claude Code-credentials'..."). Choose **Always Allow**.
+If you ever do see a Keychain prompt mentioning `security`, choose
+**Always Allow**.
 
 ## What's implemented
 
